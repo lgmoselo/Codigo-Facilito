@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Taller Don Ramiro — Control Operativo y Aprobación Bilateral</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+    .font-display { font-family: 'Barlow Condensed', sans-serif; }
+    .font-mono-tabular { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-amber-500 selection:text-slate-950">
+
+  <!-- BARRA SUPERIOR FIJA: SIMULADOR DE ROLES -->
+  <header class="sticky top-0 z-50 bg-slate-950/95 backdrop-blur border-b border-slate-800">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div class="font-display text-2xl font-extrabold tracking-wide text-white">
+        TALLER DON RAMIRO
+      </div>
+      <nav aria-label="Simulador de Roles" class="flex items-center gap-1.5 bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+        <button onclick="switchRole('mecanico')" id="tab-mecanico" class="px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer">👷 Vista Mecánico</button>
+        <button onclick="switchRole('cliente')" id="tab-cliente" class="px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer">📱 Vista Cliente</button>
+        <button onclick="switchRole('ramiro')" id="tab-ramiro" class="px-4 py-2.5 rounded-lg text-sm font-bold transition cursor-pointer">👨‍💼 Vista Don Ramiro</button>
+      </nav>
+      <button onclick="resetDemo()" class="px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition cursor-pointer">
+        <i class="fa-solid fa-rotate-left mr-1"></i> Reiniciar Demo
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main id="app-root" class="max-w-[1440px] mx-auto px-4 sm:px-6 py-6"></main>
+
+  <!-- MODAL DE IMPREVISTOS (CA-03) -->
+  <div id="modal-imprevisto" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-slate-900 border-2 border-amber-500 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden my-auto">
+      <div class="bg-amber-500 text-slate-950 px-6 py-4 flex items-center justify-between">
+        <h2 class="font-display text-2xl font-extrabold uppercase"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Reportar Imprevisto Mecánico</h2>
+        <button onclick="closeImprevistoModal()" class="w-10 h-10 rounded-lg bg-slate-950/15 font-black text-xl">&times;</button>
+      </div>
+      <div class="p-6 space-y-5">
+        <input type="hidden" id="imp-veh-id" />
+        <div>
+          <label class="block text-xs font-extrabold uppercase text-slate-300 mb-2">1. Fotografía de la Pieza Dañada (Previsualización Instantánea) *</label>
+          <input type="file" accept="image/*" onchange="previewImpFile(event)" class="text-xs text-slate-300 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:bg-slate-800 file:text-amber-400 file:font-bold cursor-pointer" />
+          <img id="imp-preview-img" src="" alt="Previsualización" class="mt-3 w-full h-44 object-cover rounded-xl border border-slate-700" />
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-extrabold uppercase text-slate-300">2. Descripción de la Falla (Voz o Texto) *</label>
+            <button type="button" onclick="dictateText('imp-desc')" class="min-h-[48px] px-4 py-2 rounded-xl bg-red-950 hover:bg-red-900 border border-red-700 text-red-200 text-xs font-extrabold">
+              <i class="fa-solid fa-microphone mr-1"></i> Dictar por Voz
+            </button>
+          </div>
+          <textarea id="imp-desc" rows="2" class="w-full rounded-xl bg-slate-950 border border-slate-700 p-3 text-sm text-white" placeholder="Describa el daño detectado o use el botón de voz..."></textarea>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-extrabold uppercase text-slate-300">3. Costo Adicional ($ USD) *</label>
+            <button type="button" onclick="setImpAmount(0)" class="text-xs text-slate-400 hover:text-white">Reiniciar a $0</button>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <button type="button" onclick="addImpAmount(10)" class="min-h-[64px] rounded-xl bg-slate-950 hover:bg-slate-800 border-2 border-slate-700 text-white font-mono-tabular text-2xl font-extrabold">+$10</button>
+            <button type="button" onclick="addImpAmount(20)" class="min-h-[64px] rounded-xl bg-slate-950 hover:bg-slate-800 border-2 border-slate-700 text-white font-mono-tabular text-2xl font-extrabold">+$20</button>
+            <button type="button" onclick="addImpAmount(50)" class="min-h-[64px] rounded-xl bg-slate-950 hover:bg-slate-800 border-2 border-slate-700 text-white font-mono-tabular text-2xl font-extrabold">+$50</button>
+            <button type="button" onclick="toggleOtroMonto()" class="min-h-[64px] rounded-xl bg-amber-500/20 border-2 border-amber-500 text-amber-300 font-bold text-xs">[ 🔢 Otro Monto ]</button>
+          </div>
+          <div id="imp-otro-wrapper" class="mt-3 hidden">
+            <input type="number" id="imp-exact-input" min="1" step="0.5" oninput="setImpAmount(this.value)" placeholder="Escriba el monto exacto ($ USD)" class="w-full min-h-[60px] px-4 rounded-xl bg-slate-950 border-2 border-amber-500 text-2xl font-mono-tabular font-black text-white" />
+          </div>
+          <div class="mt-3 p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex justify-between items-center">
+            <span class="text-xs font-bold uppercase text-slate-400">Monto Adicional a Autorizar:</span>
+            <span id="imp-total-label" class="font-mono-tabular text-2xl font-black text-amber-400">$0.00 USD</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+          <button type="button" onclick="closeImprevistoModal()" class="min-h-[64px] rounded-xl bg-slate-800 text-slate-200 font-bold">Cancelar</button>
+          <button type="button" onclick="saveImprevisto()" class="sm:col-span-2 min-h-[64px] rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-lg">Enviar a Aprobación del Cliente</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'taller_don_ramiro_state_v1';
+    const INITIAL_STATE = {
+  "tallerContacto": {
+    "nombre": "Taller Mecánico Don Ramiro",
+    "telefono": "584129901122",
+    "email": "recepcion@tallerdonramiro.com"
+  },
+  "vehiculos": [
+    {
+      "id": "VEH-101",
+      "cliente": "Alberto Mendoza",
+      "telefono": "584145551234",
+      "email": "alberto.mendoza@empresa.com",
+      "modelo": "Ford Explorer XLT 2019",
+      "placa": "AA882XX",
+      "mecanico": "Mecanico1",
+      "estado": "🔍 En Diagnóstico",
+      "fechaIngreso": "30/10/2026, 08:15:00",
+      "diagnostico": null,
+      "imprevistos": []
+    },
+    {
+      "id": "VEH-102",
+      "cliente": "Mariana Quintero",
+      "telefono": "584127778899",
+      "email": "m.quintero@logistica.com",
+      "modelo": "Toyota Hilux 2.7 2021",
+      "placa": "AB450TR",
+      "mecanico": "Mecanico1",
+      "estado": "⏸️ Pausado: Esperando Aprobación",
+      "fechaIngreso": "30/10/2026, 08:40:00",
+      "diagnostico": {
+        "id": "DG-9001",
+        "descripcion": "Reemplazo de pastillas de freno delanteras cerámicas, mantenimiento de pines deslizantes y purga de líquido DOT-4.",
+        "monto": 120,
+        "resolucion": "APROBADO",
+        "createdAt": "30/10/2026, 09:05:00",
+        "comprobanteId": "CMP-482910",
+        "firma": "Mariana Quintero",
+        "resolvedAt": "30/10/2026, 09:18:22"
+      },
+      "imprevistos": [
+        {
+          "id": "IMP-7001",
+          "descripcion": "Al desmontar mordaza se detectó disco de freno delantero con surcos profundos fuera de tolerancia mínima (19.2mm) y sello de pistón reseco.",
+          "monto": 70,
+          "fotoUrl": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20640%20420%22%20width%3D%22640%22%20height%3D%22420%22%3E%0A%20%20%20%20%20%20%20%20%3Cdefs%3E%0A%20%20%20%20%20%20%20%20%20%20%3CradialGradient%20id%3D%22disc%22%20cx%3D%2250%25%22%20cy%3D%2250%25%22%20r%3D%2250%25%22%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%231e293b%22%2F%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%2238%25%22%20stop-color%3D%22%23475569%22%2F%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%2268%25%22%20stop-color%3D%22%2394a3b8%22%2F%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%2292%25%22%20stop-color%3D%22%2364748b%22%2F%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23334155%22%2F%3E%0A%20%20%20%20%20%20%20%20%20%20%3C%2FradialGradient%3E%0A%20%20%20%20%20%20%20%20%3C%2Fdefs%3E%0A%20%20%20%20%20%20%20%20%3Crect%20width%3D%22640%22%20height%3D%22420%22%20fill%3D%22%23090d16%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Cgrid%20stroke%3D%22%231e293b%22%20stroke-width%3D%221%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22300%22%20cy%3D%22210%22%20r%3D%22165%22%20fill%3D%22url(%23disc)%22%20stroke%3D%22%23475569%22%20stroke-width%3D%226%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22300%22%20cy%3D%22210%22%20r%3D%22138%22%20fill%3D%22none%22%20stroke%3D%22%23b45309%22%20stroke-width%3D%223%22%20stroke-dasharray%3D%2214%206%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22300%22%20cy%3D%22210%22%20r%3D%22118%22%20fill%3D%22none%22%20stroke%3D%22%23dc2626%22%20stroke-width%3D%222.5%22%20stroke-dasharray%3D%2222%208%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22300%22%20cy%3D%22210%22%20r%3D%2278%22%20fill%3D%22%231e293b%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%225%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22300%22%20cy%3D%22210%22%20r%3D%2234%22%20fill%3D%22%23090d16%22%20stroke%3D%22%23475569%22%20stroke-width%3D%224%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22300%22%20cy%3D%22155%22%20r%3D%228%22%20fill%3D%22%23090d16%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22352%22%20cy%3D%22192%22%20r%3D%228%22%20fill%3D%22%23090d16%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22332%22%20cy%3D%22254%22%20r%3D%228%22%20fill%3D%22%23090d16%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22268%22%20cy%3D%22254%22%20r%3D%228%22%20fill%3D%22%23090d16%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Ccircle%20cx%3D%22248%22%20cy%3D%22192%22%20r%3D%228%22%20fill%3D%22%23090d16%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Cpath%20d%3D%22M%20380%2085%20Q%20465%20145%20450%20255%20L%20395%20245%20Q%20405%20160%20350%20115%20Z%22%20fill%3D%22%23d97706%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%223%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Crect%20x%3D%2224%22%20y%3D%2224%22%20width%3D%22250%22%20height%3D%2254%22%20rx%3D%226%22%20fill%3D%22%230f172a%22%20stroke%3D%22%23f59e0b%22%20stroke-width%3D%221.5%22%2F%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2238%22%20y%3D%2247%22%20fill%3D%22%23f59e0b%22%20font-family%3D%22monospace%22%20font-size%3D%2213%22%20font-weight%3D%22bold%22%3EEVIDENCIA%20DE%20BAH%C3%8DA%20%C2%B7%20FRENOS%3C%2Ftext%3E%0A%20%20%20%20%20%20%20%20%3Ctext%20x%3D%2238%22%20y%3D%2266%22%20fill%3D%22%23e2e8f0%22%20font-family%3D%22sans-serif%22%20font-size%3D%2212%22%3ESurco%20t%C3%A9rmico%20en%20rotor%20(Espesor%3A%2019.2mm)%3C%2Ftext%3E%0A%20%20%20%20%20%20%3C%2Fsvg%3E",
+          "fotoLabel": "Disco de Freno Rayado / Cristalizado",
+          "resolucion": "PENDIENTE",
+          "createdAt": "30/10/2026, 09:50:10"
+        }
+      ]
+    },
+    {
+      "id": "VEH-103",
+      "cliente": "Esteban Domínguez",
+      "telefono": "584243334455",
+      "email": "esteban.dominguez@correo.com",
+      "modelo": "Chevrolet Cruze 1.8 2018",
+      "placa": "AC912MK",
+      "mecanico": "Mecanico2",
+      "estado": "🔧 En Reparación",
+      "fechaIngreso": "30/10/2026, 07:50:00",
+      "diagnostico": {
+        "id": "DG-9002",
+        "descripcion": "Cambio de kit de correa de distribución, tensor hidráulico y reemplazo de refrigerante orgánico.",
+        "monto": 210,
+        "resolucion": "APROBADO",
+        "createdAt": "30/10/2026, 08:20:00",
+        "comprobanteId": "CMP-319044",
+        "firma": "4455",
+        "resolvedAt": "30/10/2026, 08:35:14"
+      },
+      "imprevistos": []
+    }
+  ],
+  "auditoria": [
+    {
+      "comprobanteId": "CMP-482910",
+      "timestamp": "30/10/2026, 09:18:22",
+      "vehiculoId": "VEH-102",
+      "placa": "AB450TR",
+      "modelo": "Toyota Hilux 2.7 2021",
+      "cliente": "Mariana Quintero",
+      "mecanico": "Mecanico1",
+      "tipo": "Diagnóstico Inicial",
+      "itemId": "DG-9001",
+      "descripcion": "Reemplazo de pastillas de freno delanteras cerámicas, mantenimiento de pines deslizantes y purga de líquido DOT-4.",
+      "monto": 120,
+      "firma": "Mariana Quintero",
+      "decision": "APROBADO"
+    },
+    {
+      "comprobanteId": "CMP-319044",
+      "timestamp": "30/10/2026, 08:35:14",
+      "vehiculoId": "VEH-103",
+      "placa": "AC912MK",
+      "modelo": "Chevrolet Cruze 1.8 2018",
+      "cliente": "Esteban Domínguez",
+      "mecanico": "Mecanico2",
+      "tipo": "Diagnóstico Inicial",
+      "itemId": "DG-9002",
+      "descripcion": "Cambio de kit de correa de distribución, tensor hidráulico y reemplazo de refrigerante orgánico.",
+      "monto": 210,
+      "firma": "4455",
+      "decision": "APROBADO"
+    }
+  ],
+  "alertasRetorno": [
+    {
+      "id": "ALT-1001",
+      "timestamp": "30/10/2026, 09:18:22",
+      "placa": "AB450TR",
+      "modelo": "Toyota Hilux 2.7 2021",
+      "cliente": "Mariana Quintero",
+      "mecanico": "Mecanico1",
+      "tipo": "Diagnóstico Inicial",
+      "monto": 120,
+      "decision": "APROBADO",
+      "comprobanteId": "CMP-482910",
+      "firma": "Mariana Quintero",
+      "leidoMecanico": false,
+      "leidoRamiro": false
+    }
+  ]
+};
+    let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || JSON.parse(JSON.stringify(INITIAL_STATE));
+    let activeRole = 'mecanico';
+    let activeMecanico = 'Mecanico1';
+    let selectedClientVehId = state.vehiculos[0]?.id || '';
+    let currentImpAmount = 0;
+    let currentImpFoto = state.vehiculos[1]?.imprevistos[0]?.fotoUrl || '';
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      render();
+    }
+
+    function resetDemo() {
+      localStorage.removeItem(STORAGE_KEY);
+      state = JSON.parse(JSON.stringify(INITIAL_STATE));
+      selectedClientVehId = state.vehiculos[0]?.id || '';
+      render();
+    }
+
+    function switchRole(role) {
+      activeRole = role;
+      render();
+    }
+
+    function dictateText(targetId) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const el = document.getElementById(targetId);
+      if (!SR) {
+        el.value = (el.value ? el.value + ' ' : '') + 'Desgaste severo detectado en bahía; requiere reemplazo de componente y ajuste.';
+        return;
+      }
+      const rec = new SR();
+      rec.lang = 'es-ES';
+      rec.onresult = (e) => {
+        const txt = e.results[0][0].transcript;
+        el.value = (el.value ? el.value + ' ' : '') + txt;
+      };
+      rec.start();
+    }
+
+    function sendInitialDiag(vehId) {
+      const desc = document.getElementById('diag-desc-' + vehId).value.trim();
+      const monto = parseFloat(document.getElementById('diag-monto-' + vehId).value);
+      if (!desc || !monto || monto <= 0) {
+        alert('Complete el diagnóstico y un monto mayor a $0.');
+        return;
+      }
+      const v = state.vehiculos.find(x => x.id === vehId);
+      v.diagnostico = {
+        id: 'DG-' + Date.now(),
+        descripcion: desc,
+        monto: monto,
+        resolucion: 'PENDIENTE',
+        createdAt: new Date().toLocaleString('es-ES', { hour12: false })
+      };
+      v.estado = '⏸️ Pausado: Esperando Aprobación';
+      selectedClientVehId = vehId;
+      save();
+    }
+
+    function openImprevistoModal(vehId) {
+      document.getElementById('imp-veh-id').value = vehId;
+      document.getElementById('imp-desc').value = 'Al desmontar mordaza se detectó disco de freno con surcos profundos fuera de tolerancia.';
+      currentImpAmount = 0;
+      document.getElementById('imp-total-label').textContent = '$0.00 USD';
+      document.getElementById('imp-preview-img').src = currentImpFoto;
+      const modal = document.getElementById('modal-imprevisto');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeImprevistoModal() {
+      const modal = document.getElementById('modal-imprevisto');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function previewImpFile(e) {
+      const f = e.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = (ev) => {
+        currentImpFoto = ev.target.result;
+        document.getElementById('imp-preview-img').src = currentImpFoto;
+      };
+      r.readAsDataURL(f);
+    }
+
+    function addImpAmount(val) {
+      currentImpAmount += val;
+      document.getElementById('imp-total-label').textContent = '$' + currentImpAmount.toFixed(2) + ' USD';
+      document.getElementById('imp-exact-input').value = currentImpAmount;
+    }
+
+    function setImpAmount(val) {
+      currentImpAmount = parseFloat(val) || 0;
+      document.getElementById('imp-total-label').textContent = '$' + currentImpAmount.toFixed(2) + ' USD';
+    }
+
+    function toggleOtroMonto() {
+      const w = document.getElementById('imp-otro-wrapper');
+      w.classList.toggle('hidden');
+      document.getElementById('imp-exact-input').focus();
+    }
+
+    function saveImprevisto() {
+      const vehId = document.getElementById('imp-veh-id').value;
+      const desc = document.getElementById('imp-desc').value.trim();
+      if (!desc || currentImpAmount <= 0) {
+        alert('Ingrese descripción y un monto mayor a $0.');
+        return;
+      }
+      const v = state.vehiculos.find(x => x.id === vehId);
+      v.imprevistos.push({
+        id: 'IMP-' + Date.now(),
+        descripcion: desc,
+        monto: currentImpAmount,
+        fotoUrl: currentImpFoto,
+        fotoLabel: 'Evidencia de Bahía',
+        resolucion: 'PENDIENTE',
+        createdAt: new Date().toLocaleString('es-ES', { hour12: false })
+      });
+      v.estado = '⏸️ Pausado: Esperando Aprobación';
+      selectedClientVehId = vehId;
+      closeImprevistoModal();
+      save();
+    }
+
+    function registerNewVehicle(e) {
+      e.preventDefault();
+      const cliente = document.getElementById('reg-cliente').value.trim();
+      const telefono = document.getElementById('reg-telefono').value.replace(/[^0-9]/g, '');
+      const email = document.getElementById('reg-email').value.trim();
+      const modelo = document.getElementById('reg-modelo').value.trim();
+      const placa = document.getElementById('reg-placa').value.trim().toUpperCase();
+      const mecanico = document.getElementById('reg-mecanico').value;
+
+      if (!cliente || telefono.length < 8 || !email.includes('@') || !modelo || !placa) {
+        alert('CA-01: Todos los campos, incluyendo Teléfono (WhatsApp) y Correo Electrónico válidos, son obligatorios.');
+        return;
+      }
+
+      state.vehiculos.unshift({
+        id: 'VEH-' + Math.floor(100 + Math.random() * 900),
+        cliente, telefono, email, modelo, placa, mecanico,
+        estado: '🔍 En Diagnóstico',
+        fechaIngreso: new Date().toLocaleString('es-ES', { hour12: false }),
+        diagnostico: null,
+        imprevistos: []
+      });
+      save();
+    }
+
+    function clientDecision(vehId, itemId, tipo, aprobado) {
+      const v = state.vehiculos.find(x => x.id === vehId);
+      const chk = document.getElementById('chk-' + itemId);
+      const firma = document.getElementById('firma-' + itemId).value.trim();
+      if (aprobado && (!chk.checked || firma.length < 3)) {
+        alert('Marque la casilla "Acepto el presupuesto descrito" e ingrese su Firma Digital.');
+        return;
+      }
+      const cmpId = 'CMP-' + Math.floor(100000 + Math.random() * 900000);
+      const now = new Date().toLocaleString('es-ES', { hour12: false });
+      const resLabel = aprobado ? 'APROBADO' : 'RECHAZADO';
+      let monto = 0;
+      let desc = '';
+
+      if (tipo === 'Diagnóstico Inicial') {
+        v.diagnostico.resolucion = resLabel;
+        v.diagnostico.comprobanteId = cmpId;
+        v.diagnostico.firma = firma || 'RECHAZADO';
+        monto = v.diagnostico.monto;
+        desc = v.diagnostico.descripcion;
+      } else {
+        const imp = v.imprevistos.find(x => x.id === itemId);
+        imp.resolucion = resLabel;
+        imp.comprobanteId = cmpId;
+        imp.firma = firma || 'RECHAZADO';
+        monto = imp.monto;
+        desc = imp.descripcion;
+      }
+
+      if (aprobado) v.estado = '🔧 En Reparación';
+
+      const receipt = Object.freeze({
+        comprobanteId: cmpId,
+        timestamp: now,
+        vehiculoId: v.id,
+        placa: v.placa,
+        modelo: v.modelo,
+        cliente: v.cliente,
+        mecanico: v.mecanico,
+        tipo: tipo,
+        itemId: itemId,
+        descripcion: desc,
+        monto: monto,
+        firma: firma || 'RECHAZADO',
+        decision: resLabel
+      });
+      state.auditoria.unshift(receipt);
+      save();
+    }
+
+    function render() {
+      ['mecanico', 'cliente', 'ramiro'].forEach(r => {
+        const b = document.getElementById('tab-' + r);
+        b.className = r === activeRole
+          ? 'px-4 py-2.5 rounded-lg text-sm font-bold bg-amber-500 text-slate-950 shadow cursor-pointer'
+          : 'px-4 py-2.5 rounded-lg text-sm font-bold text-slate-300 hover:text-white cursor-pointer';
+      });
+
+      const root = document.getElementById('app-root');
+      if (activeRole === 'mecanico') root.innerHTML = renderMecanico();
+      if (activeRole === 'cliente') root.innerHTML = renderCliente();
+      if (activeRole === 'ramiro') root.innerHTML = renderRamiro();
+    }
+
+    function renderMecanico() {
+      const autos = state.vehiculos.filter(v => v.mecanico === activeMecanico);
+      return '<div class="space-y-6">' +
+        '<div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">' +
+          '<div><h1 class="font-display text-3xl font-extrabold uppercase text-white">Terminal Operativa · Estándar Manos Sucias</h1><p class="text-xs text-slate-400">Modo oscuro de alto contraste · Botones gigantes >= 64px · Web Speech API</p></div>' +
+          '<select onchange="activeMecanico=this.value;render()" class="min-h-[56px] bg-slate-950 border border-slate-700 text-white px-4 rounded-xl font-bold">' +
+            ['Mecanico1','Mecanico2','Mecanico3','Mecanico4'].map(m => '<option value="'+m+'" '+(m===activeMecanico?'selected':'')+'>'+m+'</option>').join('') +
+          '</select>' +
+        '</div>' +
+        '<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">' +
+        autos.map(v => {
+          const msg = encodeURIComponent('Hola ' + v.cliente + ', Taller Don Ramiro informa sobre su ' + v.modelo + ' (' + v.placa + '). Estado: ' + v.estado + '. Autorice aquí: ' + window.location.href);
+          const wa = 'https://wa.me/' + v.telefono + '?text=' + msg;
+          const mail = 'mailto:' + v.email + '?subject=Presupuesto%20' + v.placa + '&body=' + msg;
+          return '<div class="bg-slate-900 border-2 border-slate-800 rounded-2xl p-6 space-y-5">' +
+            '<div class="flex justify-between items-center border-b border-slate-800 pb-4">' +
+              '<div><span class="font-mono-tabular text-xl font-black text-amber-400">' + v.placa + '</span> · <strong class="text-xl text-white">' + v.modelo + '</strong><p class="text-xs text-slate-400 mt-1">Cliente: ' + v.cliente + ' · WA: ' + v.telefono + ' · ' + v.email + '</p></div>' +
+              '<span class="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs font-bold">' + v.estado + '</span>' +
+            '</div>' +
+            (v.diagnostico ? (
+              '<div class="p-4 rounded-xl bg-slate-950 border border-slate-800"><p class="text-sm text-slate-200">' + v.diagnostico.descripcion + '</p><p class="font-mono-tabular text-lg font-black text-amber-400 mt-2">Presupuesto Inicial: $' + v.diagnostico.monto.toFixed(2) + ' USD (' + v.diagnostico.resolucion + ')</p></div>'
+            ) : (
+              '<div class="space-y-3">' +
+                '<button onclick="dictateText(\'diag-desc-'+v.id+'\')" class="w-full min-h-[64px] rounded-xl bg-red-950/70 border border-red-700 text-red-200 font-extrabold text-sm"><i class="fa-solid fa-microphone mr-2"></i>Dictar Diagnóstico Inicial por Voz</button>' +
+                '<textarea id="diag-desc-'+v.id+'" rows="2" class="w-full rounded-xl bg-slate-950 border border-slate-700 p-3 text-sm text-white" placeholder="Detalle de la falla..."></textarea>' +
+                '<div class="grid grid-cols-2 gap-3">' +
+                  '<input id="diag-monto-'+v.id+'" type="number" placeholder="Monto ($ USD)" class="min-h-[64px] px-4 rounded-xl bg-slate-950 border border-slate-700 font-mono-tabular text-xl font-black text-white" />' +
+                  '<button onclick="sendInitialDiag(\''+v.id+'\')" class="min-h-[64px] rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm">Enviar a Aprobación</button>' +
+                '</div>' +
+              '</div>'
+            )) +
+            '<button onclick="openImprevistoModal(\''+v.id+'\')" class="w-full min-h-[68px] rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-display text-2xl font-black uppercase">+ REPORTAR IMPREVISTO</button>' +
+            (v.estado.includes('Pausado') ? (
+              '<div class="grid grid-cols-2 gap-3 pt-2">' +
+                '<a href="'+wa+'" target="_blank" class="min-h-[64px] rounded-xl bg-emerald-600 text-white font-extrabold text-sm flex items-center justify-center">Enviar por WhatsApp</a>' +
+                '<a href="'+mail+'" class="min-h-[64px] rounded-xl bg-slate-800 border border-slate-600 text-white font-extrabold text-sm flex items-center justify-center">Enviar por Correo</a>' +
+              '</div>'
+            ) : '') +
+          '</div>';
+        }).join('') +
+        '</div></div>';
+    }
+
+    function renderCliente() {
+      const v = state.vehiculos.find(x => x.id === selectedClientVehId) || state.vehiculos[0];
+      const pendDiag = v.diagnostico && v.diagnostico.resolucion === 'PENDIENTE' ? v.diagnostico : null;
+      const pendImp = v.imprevistos.filter(i => i.resolucion === 'PENDIENTE');
+
+      return '<div class="space-y-6">' +
+        '<div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-wrap justify-between items-center gap-4">' +
+          '<div><h1 class="font-display text-3xl font-extrabold text-white">Portal Digital del Cliente</h1><p class="text-sm text-slate-400">Estado actual de ' + v.placa + ' (' + v.modelo + '): <strong class="text-amber-400">' + v.estado + '</strong></p></div>' +
+          '<select onchange="selectedClientVehId=this.value;render()" class="min-h-[48px] bg-slate-950 border border-slate-700 text-white px-4 rounded-xl font-bold">' +
+            state.vehiculos.map(x => '<option value="'+x.id+'" '+(x.id===v.id?'selected':'')+'>'+x.placa+' · '+x.modelo+'</option>').join('') +
+          '</select>' +
+        '</div>' +
+        (pendDiag ? renderCardCliente(v, pendDiag, 'Diagnóstico Inicial') : '') +
+        pendImp.map(imp => renderCardCliente(v, imp, 'Imprevisto')).join('') +
+      '</div>';
+    }
+
+    function renderCardCliente(v, item, tipo) {
+      return '<div class="bg-slate-900 border-2 border-amber-500 rounded-2xl overflow-hidden">' +
+        '<div class="bg-amber-500 text-slate-950 px-6 py-4 flex justify-between items-center font-extrabold"><span>AUTORIZACIÓN REQUERIDA: ' + tipo + '</span><span class="font-mono-tabular text-xl">$' + item.monto.toFixed(2) + ' USD</span></div>' +
+        '<div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">' +
+          '<div class="space-y-3">' +
+            (item.fotoUrl ? '<img src="'+item.fotoUrl+'" class="w-full h-48 object-cover rounded-xl border border-slate-700" />' : '') +
+            '<p class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200">' + item.descripcion + '</p>' +
+          '</div>' +
+          '<div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-4">' +
+            '<label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" id="chk-'+item.id+'" class="w-5 h-5" /> <span>Acepto el presupuesto descrito</span></label>' +
+            '<input id="firma-'+item.id+'" type="text" placeholder="Firma Digital (Nombre o últimos 4 dígitos)" class="w-full min-h-[52px] px-4 rounded-xl bg-slate-900 border border-slate-700 text-white" />' +
+            '<div class="grid grid-cols-2 gap-3">' +
+              '<button onclick="clientDecision(\''+v.id+'\',\''+item.id+'\',\''+tipo+'\',false)" class="min-h-[56px] rounded-xl bg-slate-800 text-white font-bold">❌ RECHAZAR</button>' +
+              '<button onclick="clientDecision(\''+v.id+'\',\''+item.id+'\',\''+tipo+'\',true)" class="min-h-[56px] rounded-xl bg-emerald-600 text-white font-extrabold">✅ APROBAR</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function renderRamiro() {
+      return '<div class="space-y-8">' +
+        '<form onsubmit="registerNewVehicle(event)" class="bg-slate-900 border border-slate-800 rounded-2xl p-6 grid grid-cols-1 md:grid-cols-3 gap-4">' +
+          '<div class="md:col-span-3"><h2 class="font-display text-2xl font-extrabold uppercase text-white">Ingreso de Vehículo · Contacto Dual Obligatorio (CA-01)</h2></div>' +
+          '<input id="reg-cliente" placeholder="Nombre del Cliente *" class="min-h-[48px] px-3.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm" />' +
+          '<input id="reg-telefono" placeholder="Teléfono WhatsApp (Ej: 584121234567) *" class="min-h-[48px] px-3.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm" />' +
+          '<input id="reg-email" type="email" placeholder="Correo Electrónico *" class="min-h-[48px] px-3.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm" />' +
+          '<input id="reg-modelo" placeholder="Marca y Modelo *" class="min-h-[48px] px-3.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm" />' +
+          '<input id="reg-placa" placeholder="Placa *" class="min-h-[48px] px-3.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm uppercase" />' +
+          '<select id="reg-mecanico" class="min-h-[48px] px-3.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm"><option value="Mecanico1">Mecanico1</option><option value="Mecanico2">Mecanico2</option><option value="Mecanico3">Mecanico3</option><option value="Mecanico4">Mecanico4</option></select>' +
+          '<div class="md:col-span-3 flex justify-end"><button type="submit" class="min-h-[52px] px-6 rounded-xl bg-amber-500 text-slate-950 font-extrabold text-sm">Registrar Vehículo e Iniciar Diagnóstico</button></div>' +
+        '</form>' +
+        '<div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">' +
+          '<h2 class="font-display text-2xl font-extrabold uppercase text-white mb-4">Tabla de Auditoría Digital Inmutable (CA-05)</h2>' +
+          '<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="border-y border-slate-800 text-xs uppercase text-slate-400"><tr><th class="py-3 px-4">ID Comprobante</th><th class="py-3 px-4">Fecha/Hora</th><th class="py-3 px-4">Placa</th><th class="py-3 px-4">Tipo</th><th class="py-3 px-4">Monto</th><th class="py-3 px-4">Firma</th><th class="py-3 px-4">Resolución</th></tr></thead><tbody class="divide-y divide-slate-800">' +
+          state.auditoria.map(a => '<tr><td class="py-3 px-4 font-mono-tabular text-amber-400 font-bold">'+a.comprobanteId+'</td><td class="py-3 px-4 text-xs">'+a.timestamp+'</td><td class="py-3 px-4 font-bold">'+a.placa+'</td><td class="py-3 px-4">'+a.tipo+'</td><td class="py-3 px-4 font-mono-tabular font-black">$'+a.monto.toFixed(2)+'</td><td class="py-3 px-4 font-mono-tabular text-emerald-300">'+a.firma+'</td><td class="py-3 px-4 font-extrabold">'+a.decision+'</td></tr>').join('') +
+          '</tbody></table></div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    render();
+  </script>
+</body>
+</html>
