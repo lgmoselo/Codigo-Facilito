@@ -1,1 +1,1 @@
-Este repositorio contiene el código de un software de control para un Taller Mecánico ficticio llamado Don Ramón, forma parte de la tarea final del Curso de Fundamentos de product engineering con IA, imprtido por CodigoFacilito.com
+Este repositorio contiene el código de un software de control para un Taller Mecánico ficticio llamado  Taller Don Ramón, forma parte de la tarea final del Curso de Fundamentos de product engineering con IA, imprtido por CodigoFacilito.com
